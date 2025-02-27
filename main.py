@@ -183,34 +183,39 @@ class FacebookPoster:
                         )
                         create_post.click()
                         time.sleep(3)
-                    except Exception as e:
-                        self.log(f"Initial button not found, trying alternative approach: {str(e)}")
-
-                    # Find and click the post box
-                    try:
-                        # Try multiple possible selectors for the text input
-                        post_box = WebDriverWait(driver, 10).until(
-                            EC.presence_of_element_located((By.XPATH, "//div[@role='textbox']")) or
-                            EC.presence_of_element_located((By.XPATH, "//div[@contenteditable='true']")) or
-                            EC.presence_of_element_located((By.XPATH, "//div[contains(@aria-label, 'Write')]"))
-                        )
-                        post_box.click()
-                        time.sleep(2)
                         
-                        # Enter message
+                        # Wait for and switch to popup dialog
+                        dialog = WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.XPATH, "//div[@role='dialog']"))
+                        )
+                        
+                        # Find and click the post box in the popup
+                        post_box = WebDriverWait(dialog, 10).until(
+                            EC.presence_of_element_located((By.XPATH, ".//div[@role='textbox']")) or
+                            EC.presence_of_element_located((By.XPATH, ".//div[@contenteditable='true']")) or
+                            EC.presence_of_element_located((By.XPATH, ".//div[contains(@aria-label, 'Write')]"))
+                        )
+                        
+                        # Try to scroll the post box into view
+                        driver.execute_script("arguments[0].scrollIntoView(true);", post_box)
+                        time.sleep(1)
+                        
+                        # Click and enter text
+                        post_box.click()
+                        time.sleep(1)
                         post_box.send_keys(message)
                         time.sleep(2)
 
-                        # Try to find the post button
+                        # Try to find the post button within the dialog
                         try:
-                            post_button = WebDriverWait(driver, 10).until(
-                                EC.element_to_be_clickable((By.XPATH, "//div[@aria-label='Post']")) or
-                                EC.element_to_be_clickable((By.XPATH, "//span[text()='Post']")) or
-                                EC.element_to_be_clickable((By.XPATH, "//div[text()='Post']"))
+                            post_button = WebDriverWait(dialog, 10).until(
+                                EC.element_to_be_clickable((By.XPATH, ".//div[@aria-label='Post']")) or
+                                EC.element_to_be_clickable((By.XPATH, ".//span[text()='Post']")) or
+                                EC.element_to_be_clickable((By.XPATH, ".//div[text()='Post']"))
                             )
                         except:
                             # If the above fails, try finding any button containing "Post"
-                            post_button = driver.find_element(By.XPATH, "//*[contains(text(), 'Post')]")
+                            post_button = dialog.find_element(By.XPATH, ".//*[contains(text(), 'Post')]")
                         
                         post_button.click()
                         self.log("Clicked post button")
