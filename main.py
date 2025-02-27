@@ -1,77 +1,91 @@
 import customtkinter as ctk
 from selenium import webdriver
 from selenium.webdriver.common.by import By
-from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.support.ui import WebDriverWait
 from selenium.webdriver.support import expected_conditions as EC
-from webdriver_manager.chrome import ChromeDriverManager
 import time
-import json
 import os
-from threading import Thread
+import json
 
 class FacebookPoster:
-    def __init__(self, test_mode=False):
-        if not test_mode:
-            self.window = ctk.CTk()
-            self.window.title("Facebook Group Poster")
-            self.window.geometry("600x800")
-            self.setup_gui()
-            self.window.mainloop()
-        else:
-            # Initialize without GUI for testing
-            self.email = ""
-            self.password = ""
-            self.groups = []
-            self.message = ""
+    def __init__(self):
+        self.window = ctk.CTk()
+        self.window.title("Facebook Group Poster")
+        self.window.geometry("800x600")
+        self.setup_gui()
+
+    def load_cookies(self):
+        try:
+            with open('facebook_cookies.json', 'r') as f:
+                cookies = json.load(f)
+                return cookies
+        except:
+            return None
+
+    def save_cookies(self, driver):
+        cookies = driver.get_cookies()
+        with open('facebook_cookies.json', 'w') as f:
+            json.dump(cookies, f)
 
     def setup_gui(self):
-        # Login Frame
-        login_frame = ctk.CTkFrame(self.window)
-        login_frame.pack(pady=10, padx=10, fill="x")
-        
-        ctk.CTkLabel(login_frame, text="Login Details").pack()
-        self.email_entry = ctk.CTkEntry(login_frame, placeholder_text="Email")
+        # Create main container
+        container = ctk.CTkFrame(self.window)
+        container.pack(fill="both", expand=True, padx=10, pady=10)
+
+        # Left side - Input fields
+        input_frame = ctk.CTkFrame(container)
+        input_frame.pack(side="left", fill="both", expand=True, padx=5, pady=5)
+
+        # Email
+        ctk.CTkLabel(input_frame, text="Email:").pack(pady=5)
+        self.email_entry = ctk.CTkEntry(input_frame, width=200)
         self.email_entry.pack(pady=5)
-        self.password_entry = ctk.CTkEntry(login_frame, placeholder_text="Password", show="*")
+
+        # Password
+        ctk.CTkLabel(input_frame, text="Password:").pack(pady=5)
+        self.password_entry = ctk.CTkEntry(input_frame, width=200, show="*")
         self.password_entry.pack(pady=5)
 
-        # Groups Frame
-        groups_frame = ctk.CTkFrame(self.window)
-        groups_frame.pack(pady=10, padx=10, fill="both", expand=True)
-        
-        ctk.CTkLabel(groups_frame, text="Group URLs (one per line)").pack()
-        self.groups_text = ctk.CTkTextbox(groups_frame, height=200)
-        self.groups_text.pack(pady=5, fill="both", expand=True)
+        # Groups
+        ctk.CTkLabel(input_frame, text="Group URLs (one per line):").pack(pady=5)
+        self.groups_text = ctk.CTkTextbox(input_frame, width=200, height=100)
+        self.groups_text.pack(pady=5)
 
-        # Message Frame
-        message_frame = ctk.CTkFrame(self.window)
-        message_frame.pack(pady=10, padx=10, fill="both", expand=True)
-        
-        ctk.CTkLabel(message_frame, text="Message").pack()
-        self.message_text = ctk.CTkTextbox(message_frame, height=200)
-        self.message_text.pack(pady=5, fill="both", expand=True)
+        # Message
+        ctk.CTkLabel(input_frame, text="Message:").pack(pady=5)
+        self.message_text = ctk.CTkTextbox(input_frame, width=200, height=100)
+        self.message_text.pack(pady=5)
 
         # Control Frame
-        control_frame = ctk.CTkFrame(self.window)
-        control_frame.pack(pady=10, padx=10, fill="both")
-        
-        self.status_text = ctk.CTkTextbox(control_frame, height=100)
-        self.status_text.pack(pady=5, fill="both")
-        
-        ctk.CTkButton(control_frame, text="Start Posting", command=self.start_posting).pack(pady=5)
+        control_frame = ctk.CTkFrame(input_frame)
+        control_frame.pack(fill="x", pady=10)
+
+        # Start Button
+        self.start_button = ctk.CTkButton(control_frame, text="Start Posting", command=self.post_to_groups)
+        self.start_button.pack(pady=5)
+
+        # Continue Button (hidden initially)
+        self.continue_button = ctk.CTkButton(control_frame, text="Continue After Verification", 
+                                           command=lambda: setattr(self, 'can_continue', True))
+        self.continue_button.pack(pady=5)
+        self.continue_button.pack_forget()  # Hide initially
+
+        # Right side - Log
+        log_frame = ctk.CTkFrame(container)
+        log_frame.pack(side="right", fill="both", expand=True, padx=5, pady=5)
+
+        ctk.CTkLabel(log_frame, text="Log:").pack(pady=5)
+        self.log_text = ctk.CTkTextbox(log_frame, width=300, height=400)
+        self.log_text.pack(pady=5)
 
     def log(self, message):
-        if hasattr(self, 'status_text'):
-            self.status_text.insert("end", f"{message}\n")
-            self.status_text.see("end")
-        print(message)
-
-    def start_posting(self):
-        Thread(target=self.post_to_groups, daemon=True).start()
+        self.log_text.insert("end", f"{message}\n")
+        self.log_text.see("end")
+        self.window.update()
 
     def post_to_groups(self, test_credentials=None):
         self.log("Starting Facebook posting process...")
+        self.can_continue = False
         
         # Get input values
         if test_credentials:
@@ -86,7 +100,7 @@ class FacebookPoster:
             message = self.message_text.get("1.0", "end-1c")
 
         # Validate inputs
-        if not all([email, password, groups, message]):
+        if not all([groups, message]):
             self.log("Please fill in all fields!")
             return
 
@@ -94,40 +108,64 @@ class FacebookPoster:
         self.log("Setting up Chrome...")
         try:
             username = os.getlogin()
-            user_data_dir = f'C:\\Users\\{username}\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 1'  # Added Profile 1
+            user_data_dir = f'C:\\Users\\{username}\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 1'
             chrome_options = webdriver.ChromeOptions()
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument(f'--user-data-dir={user_data_dir}')
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-gpu')
-            chrome_options.add_argument('--remote-debugging-port=9222')  # Added debugging port
-            chrome_options.add_argument('--disable-extensions')  # Added disable extensions
+            chrome_options.add_argument('--remote-debugging-port=9222')
+            chrome_options.add_argument('--disable-extensions')
             prefs = {"profile.default_content_setting_values.notifications": 2}
             chrome_options.add_experimental_option("prefs", prefs)
-            chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])  # Added to reduce logging
+            chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])
             
-            # Make sure Chrome is closed before starting
             os.system("taskkill /f /im chrome.exe")
             time.sleep(2)
             
             driver = webdriver.Chrome(options=chrome_options)
 
+            # Try cookies first
+            cookies = self.load_cookies()
+            if cookies:
+                self.log("Attempting to login with saved cookies...")
+                driver.get("https://www.facebook.com")
+                for cookie in cookies:
+                    try:
+                        driver.add_cookie(cookie)
+                    except:
+                        pass
+                driver.refresh()
+                time.sleep(5)
 
+            # If no cookies or cookie login failed, try normal login
+            if not cookies or "login" in driver.current_url.lower():
+                self.log("Logging in with credentials...")
+                driver.get("https://www.facebook.com")
+                
+                email_element = driver.find_element(By.ID, "email")
+                email_element.send_keys(email)
+                
+                pass_element = driver.find_element(By.ID, "pass")
+                pass_element.send_keys(password)
+                
+                login_button = driver.find_element(By.NAME, "login")
+                login_button.click()
+                
+                time.sleep(5)
 
-            # Login to Facebook
-            self.log("Logging into Facebook...")
-            driver.get("https://www.facebook.com")
-            
-            email_element = driver.find_element(By.ID, "email")
-            email_element.send_keys(email)
-            
-            pass_element = driver.find_element(By.ID, "pass")
-            pass_element.send_keys(password)
-            
-            login_button = driver.find_element(By.NAME, "login")
-            login_button.click()
-            
-            time.sleep(5)  # Wait for login to complete
+            # Check if verification is needed
+            if "checkpoint" in driver.current_url or "login" in driver.current_url:
+                self.log("Verification needed. Please complete verification in the browser.")
+                self.continue_button.pack()  # Show continue button
+                
+                while not self.can_continue:
+                    time.sleep(1)
+                    if hasattr(self, 'window'):
+                        self.window.update()
+                
+                self.continue_button.pack_forget()  # Hide continue button
+                self.save_cookies(driver)  # Save cookies after successful login
 
             # Post to each group
             for group_url in groups:
@@ -148,7 +186,7 @@ class FacebookPoster:
                     # Click post button
                     post_button = driver.find_element(By.CSS_SELECTOR, "[aria-label='Post']")
                     post_button.click()
-                    time.sleep(10)  # Move this inside the try block properly
+                    time.sleep(10)
                     time.sleep(3)
 
                     self.log(f"Successfully posted to {group_url}")
@@ -163,5 +201,9 @@ class FacebookPoster:
             if 'driver' in locals():
                 driver.quit()
 
+    def run(self):
+        self.window.mainloop()
+
 if __name__ == "__main__":
-    FacebookPoster()
+    app = FacebookPoster()
+    app.run()
