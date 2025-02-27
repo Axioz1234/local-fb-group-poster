@@ -3,14 +3,14 @@ from setuptools import setup, find_packages
 setup(
     name="local-fb-group-poster",
     version="0.1",
-    packages=["facebook_poster"],
+    packages=find_packages(),
     install_requires=[
-        line.strip()
-        for line in open("requirements.txt").readlines()
+        "customtkinter",
+        "selenium",
     ],
     entry_points={
         'console_scripts': [
-            'local-fb-group-poster=facebook_poster.main:FacebookPoster().run',
+            'local-fb-group-poster=facebook_poster.main:main',
         ],
     },
 )

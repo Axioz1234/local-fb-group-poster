@@ -1,0 +1,2 @@
+[console_scripts]
+local-fb-group-poster = facebook_poster.main:main

@@ -8,5 +8,8 @@ facebook_poster/main.py
 local_fb_group_poster.egg-info/PKG-INFO
 local_fb_group_poster.egg-info/SOURCES.txt
 local_fb_group_poster.egg-info/dependency_links.txt
+local_fb_group_poster.egg-info/entry_points.txt
+local_fb_group_poster.egg-info/requires.txt
 local_fb_group_poster.egg-info/top_level.txt
+tests/__init__.py
 tests/test_facebook_poster.py

@@ -333,8 +333,15 @@ class FacebookPoster:
                 driver.quit()
 
     def run(self):
+        """Start the GUI application"""
         self.window.mainloop()
 
-if __name__ == "__main__":
+
+def main():
+    """Entry point for the application"""
     app = FacebookPoster()
     app.run()
+
+
+if __name__ == "__main__":
+    main()
