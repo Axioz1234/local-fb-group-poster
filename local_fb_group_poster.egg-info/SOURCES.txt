@@ -1,0 +1,12 @@
+MANIFEST.in
+README.md
+pyproject.toml
+requirements.txt
+setup.py
+facebook_poster/__init__.py
+facebook_poster/main.py
+local_fb_group_poster.egg-info/PKG-INFO
+local_fb_group_poster.egg-info/SOURCES.txt
+local_fb_group_poster.egg-info/dependency_links.txt
+local_fb_group_poster.egg-info/top_level.txt
+tests/test_facebook_poster.py
