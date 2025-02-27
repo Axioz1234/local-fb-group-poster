@@ -189,37 +189,57 @@ class FacebookPoster:
                             EC.presence_of_element_located((By.XPATH, "//div[@role='dialog']"))
                         )
                         
-                        # Find and click the post box in the popup
+                        # Find and click the post box in the popup using exact matching
                         post_box = WebDriverWait(dialog, 10).until(
-                            EC.presence_of_element_located((By.XPATH, ".//div[@role='textbox']")) or
-                            EC.presence_of_element_located((By.XPATH, ".//div[@contenteditable='true']")) or
-                            EC.presence_of_element_located((By.XPATH, ".//div[contains(@aria-label, 'Write')]"))
+                            EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Write something...'][@role='textbox']"))
                         )
                         
                         # Try to scroll the post box into view
                         driver.execute_script("arguments[0].scrollIntoView(true);", post_box)
                         time.sleep(1)
                         
-                        # Click and enter text
-                        post_box.click()
+                        # Click and enter text using JavaScript
+                        driver.execute_script("arguments[0].click();", post_box)
                         time.sleep(1)
-                        post_box.send_keys(message)
+                        
+                        # Try different methods to enter text
+                        try:
+                            post_box.send_keys(message)
+                        except:
+                            driver.execute_script(f"arguments[0].innerHTML = '{message}'", post_box)
+                        
                         time.sleep(2)
 
-                        # Try to find the post button within the dialog
+                        # Try to find the post button with specific selectors
                         try:
                             post_button = WebDriverWait(dialog, 10).until(
-                                EC.element_to_be_clickable((By.XPATH, ".//div[@aria-label='Post']")) or
-                                EC.element_to_be_clickable((By.XPATH, ".//span[text()='Post']")) or
-                                EC.element_to_be_clickable((By.XPATH, ".//div[text()='Post']"))
+                                EC.element_to_be_clickable((By.XPATH, "//div[@aria-label='Post'][@role='button']"))
                             )
-                        except:
-                            # If the above fails, try finding any button containing "Post"
-                            post_button = dialog.find_element(By.XPATH, ".//*[contains(text(), 'Post')]")
-                        
-                        post_button.click()
-                        self.log("Clicked post button")
-                        time.sleep(5)  # Wait for post to complete
+                            # Try to scroll the button into view
+                            driver.execute_script("arguments[0].scrollIntoView(true);", post_button)
+                            time.sleep(1)
+                            
+                            # Try JavaScript click first
+                            try:
+                                driver.execute_script("arguments[0].click();", post_button)
+                            except:
+                                # If JavaScript click fails, try regular click
+                                post_button.click()
+                            
+                            self.log("Clicked post button")
+                            time.sleep(5)  # Wait for post to complete
+                            
+                        except Exception as e:
+                            self.log(f"Error clicking post button: {str(e)}")
+                            # Try alternative selector
+                            try:
+                                post_button = driver.find_element(By.CSS_SELECTOR, "div[aria-label='Post'][role='button']")
+                                driver.execute_script("arguments[0].click();", post_button)
+                                self.log("Clicked post button using alternative method")
+                                time.sleep(5)
+                            except Exception as e:
+                                self.log(f"Failed to click post button with alternative method: {str(e)}")
+                                raise
 
                         self.log(f"Successfully posted to {group_url}")
                         time.sleep(3)  # Wait before moving to next group
