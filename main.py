@@ -90,20 +90,28 @@ class FacebookPoster:
             self.log("Please fill in all fields!")
             return
 
-         # Setup Chrome
+        # Setup Chrome
         self.log("Setting up Chrome...")
         try:
             username = os.getlogin()
-            user_data_dir = f'C:\\Users\\{username}\\AppData\\Local\\Google\\Chrome\\User Data'
+            user_data_dir = f'C:\\Users\\{username}\\AppData\\Local\\Google\\Chrome\\User Data\\Profile 1'  # Added Profile 1
             chrome_options = webdriver.ChromeOptions()
             chrome_options.add_argument('--no-sandbox')
             chrome_options.add_argument(f'--user-data-dir={user_data_dir}')
             chrome_options.add_argument('--disable-dev-shm-usage')
             chrome_options.add_argument('--disable-gpu')
+            chrome_options.add_argument('--remote-debugging-port=9222')  # Added debugging port
+            chrome_options.add_argument('--disable-extensions')  # Added disable extensions
             prefs = {"profile.default_content_setting_values.notifications": 2}
             chrome_options.add_experimental_option("prefs", prefs)
+            chrome_options.add_experimental_option('excludeSwitches', ['enable-logging'])  # Added to reduce logging
+            
+            # Make sure Chrome is closed before starting
+            os.system("taskkill /f /im chrome.exe")
+            time.sleep(2)
             
             driver = webdriver.Chrome(options=chrome_options)
+
 
 
             # Login to Facebook
