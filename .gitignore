@@ -1,0 +1,17 @@
+# Sensitive data
+facebook_cookies.json
+*.png
+*.env
+credentials.txt
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Build
+build/
+dist/
+*.spec
+*.exe

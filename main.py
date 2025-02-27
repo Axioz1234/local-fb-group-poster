@@ -6,26 +6,20 @@ from selenium.webdriver.support import expected_conditions as EC
 import time
 import os
 import json
+import random
+from pathlib import Path
 
 class FacebookPoster:
     def __init__(self):
         self.window = ctk.CTk()
         self.window.title("Facebook Group Poster")
         self.window.geometry("800x600")
+        
+        # Default delay settings
+        self.min_delay = 30  # minimum delay in seconds
+        self.max_delay = 60  # maximum delay in seconds
+        
         self.setup_gui()
-
-    def load_cookies(self):
-        try:
-            with open('facebook_cookies.json', 'r') as f:
-                cookies = json.load(f)
-                return cookies
-        except:
-            return None
-
-    def save_cookies(self, driver):
-        cookies = driver.get_cookies()
-        with open('facebook_cookies.json', 'w') as f:
-            json.dump(cookies, f)
 
     def setup_gui(self):
         # Create main container
@@ -56,6 +50,32 @@ class FacebookPoster:
         self.message_text = ctk.CTkTextbox(input_frame, width=200, height=100)
         self.message_text.pack(pady=5)
 
+        # Delay Settings Frame
+        delay_frame = ctk.CTkFrame(input_frame)
+        delay_frame.pack(fill="x", pady=10, padx=5)
+
+        ctk.CTkLabel(delay_frame, text="Delay Settings (seconds)").pack(pady=5)
+        
+        min_delay_frame = ctk.CTkFrame(delay_frame)
+        min_delay_frame.pack(fill="x", pady=2)
+        ctk.CTkLabel(min_delay_frame, text="Min:").pack(side="left", padx=5)
+        self.min_delay_entry = ctk.CTkEntry(min_delay_frame, width=60)
+        self.min_delay_entry.insert(0, str(self.min_delay))
+        self.min_delay_entry.pack(side="left", padx=5)
+
+        max_delay_frame = ctk.CTkFrame(delay_frame)
+        max_delay_frame.pack(fill="x", pady=2)
+        ctk.CTkLabel(max_delay_frame, text="Max:").pack(side="left", padx=5)
+        self.max_delay_entry = ctk.CTkEntry(max_delay_frame, width=60)
+        self.max_delay_entry.insert(0, str(self.max_delay))
+        self.max_delay_entry.pack(side="left", padx=5)
+
+        # Random delay checkbox
+        self.random_delay_var = ctk.BooleanVar(value=True)
+        self.random_delay_check = ctk.CTkCheckBox(delay_frame, text="Use random delay", 
+                                                 variable=self.random_delay_var)
+        self.random_delay_check.pack(pady=5)
+
         # Control Frame
         control_frame = ctk.CTkFrame(input_frame)
         control_frame.pack(fill="x", pady=10)
@@ -68,7 +88,7 @@ class FacebookPoster:
         self.continue_button = ctk.CTkButton(control_frame, text="Continue After Verification", 
                                            command=lambda: setattr(self, 'can_continue', True))
         self.continue_button.pack(pady=5)
-        self.continue_button.pack_forget()  # Hide initially
+        self.continue_button.pack_forget()
 
         # Right side - Log
         log_frame = ctk.CTkFrame(container)
@@ -77,6 +97,54 @@ class FacebookPoster:
         ctk.CTkLabel(log_frame, text="Log:").pack(pady=5)
         self.log_text = ctk.CTkTextbox(log_frame, width=300, height=400)
         self.log_text.pack(pady=5)
+
+    def get_random_delay(self):
+        """Get random delay between min and max values"""
+        try:
+            min_delay = float(self.min_delay_entry.get())
+            max_delay = float(self.max_delay_entry.get())
+            
+            if self.random_delay_var.get():
+                delay = random.uniform(min_delay, max_delay)
+                self.log(f"Waiting for {delay:.1f} seconds...")
+                return delay
+            else:
+                self.log(f"Waiting for {min_delay} seconds...")
+                return min_delay
+        except ValueError:
+            self.log("Invalid delay values, using defaults")
+            return 30
+
+    def get_app_data_path(self):
+        """Get the appropriate path for storing app data"""
+        if os.name == 'nt':  # Windows
+            app_data = os.getenv('APPDATA')
+            base_path = Path(app_data) / "FacebookPoster"
+        else:  # Linux/Mac
+            home = os.path.expanduser("~")
+            base_path = Path(home) / ".facebook_poster"
+            
+        base_path.mkdir(parents=True, exist_ok=True)
+        return base_path
+
+    def load_cookies(self):
+        try:
+            cookies_path = self.get_app_data_path() / 'facebook_cookies.json'
+            if cookies_path.exists():
+                with open(cookies_path, 'r') as f:
+                    return json.load(f)
+        except Exception as e:
+            self.log(f"Error loading cookies: {e}")
+        return None
+
+    def save_cookies(self, driver):
+        try:
+            cookies_path = self.get_app_data_path() / 'facebook_cookies.json'
+            cookies = driver.get_cookies()
+            with open(cookies_path, 'w') as f:
+                json.dump(cookies, f)
+        except Exception as e:
+            self.log(f"Error saving cookies: {e}")
 
     def log(self, message):
         self.log_text.insert("end", f"{message}\n")
@@ -240,7 +308,8 @@ class FacebookPoster:
                             except Exception as e:
                                 self.log(f"Failed to click post button with alternative method: {str(e)}")
                                 raise
-
+ 
+                        time.sleep(self.get_random_delay())  # Add this line
                         self.log(f"Successfully posted to {group_url}")
                         time.sleep(3)  # Wait before moving to next group
 
