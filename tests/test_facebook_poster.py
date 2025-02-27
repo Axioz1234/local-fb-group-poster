@@ -1,5 +1,5 @@
 import pytest
-from main import FacebookPoster
+from facebook_poster.main import FacebookPoster
 from selenium import webdriver
 from selenium.webdriver.chrome.options import Options
 
