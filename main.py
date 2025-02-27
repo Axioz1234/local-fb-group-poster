@@ -172,27 +172,64 @@ class FacebookPoster:
                 try:
                     self.log(f"Posting to: {group_url}")
                     driver.get(group_url)
-                    time.sleep(3)
+                    time.sleep(5)  # Wait for group page to load
 
-                    # Find and click post box
-                    post_box = driver.find_element(By.CSS_SELECTOR, "[role='textbox']")
-                    post_box.click()
-                    time.sleep(1)
+                    # First try to find and click "Write something" or "Create Post"
+                    try:
+                        create_post = WebDriverWait(driver, 10).until(
+                            EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Write something')]")) or
+                            EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Create Post')]")) or
+                            EC.element_to_be_clickable((By.XPATH, "//*[contains(text(), 'Start Discussion')]"))
+                        )
+                        create_post.click()
+                        time.sleep(3)
+                    except Exception as e:
+                        self.log(f"Initial button not found, trying alternative approach: {str(e)}")
 
-                    # Enter message
-                    post_box.send_keys(message)
-                    time.sleep(1)
+                    # Find and click the post box
+                    try:
+                        # Try multiple possible selectors for the text input
+                        post_box = WebDriverWait(driver, 10).until(
+                            EC.presence_of_element_located((By.XPATH, "//div[@role='textbox']")) or
+                            EC.presence_of_element_located((By.XPATH, "//div[@contenteditable='true']")) or
+                            EC.presence_of_element_located((By.XPATH, "//div[contains(@aria-label, 'Write')]"))
+                        )
+                        post_box.click()
+                        time.sleep(2)
+                        
+                        # Enter message
+                        post_box.send_keys(message)
+                        time.sleep(2)
 
-                    # Click post button
-                    post_button = driver.find_element(By.CSS_SELECTOR, "[aria-label='Post']")
-                    post_button.click()
-                    time.sleep(10)
-                    time.sleep(3)
+                        # Try to find the post button
+                        try:
+                            post_button = WebDriverWait(driver, 10).until(
+                                EC.element_to_be_clickable((By.XPATH, "//div[@aria-label='Post']")) or
+                                EC.element_to_be_clickable((By.XPATH, "//span[text()='Post']")) or
+                                EC.element_to_be_clickable((By.XPATH, "//div[text()='Post']"))
+                            )
+                        except:
+                            # If the above fails, try finding any button containing "Post"
+                            post_button = driver.find_element(By.XPATH, "//*[contains(text(), 'Post')]")
+                        
+                        post_button.click()
+                        self.log("Clicked post button")
+                        time.sleep(5)  # Wait for post to complete
 
-                    self.log(f"Successfully posted to {group_url}")
+                        self.log(f"Successfully posted to {group_url}")
+                        time.sleep(3)  # Wait before moving to next group
+
+                    except Exception as e:
+                        self.log(f"Error with post box or posting: {str(e)}")
+                        # Take screenshot for debugging
+                        driver.save_screenshot(f"error_screenshot_{time.time()}.png")
+                        continue
 
                 except Exception as e:
                     self.log(f"Error posting to {group_url}: {str(e)}")
+                    # Take screenshot for debugging
+                    driver.save_screenshot(f"error_screenshot_{time.time()}.png")
+                    continue
 
         except Exception as e:
             self.log(f"Error: {str(e)}")
