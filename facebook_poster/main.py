@@ -21,6 +21,37 @@ class FacebookPoster:
         
         self.setup_gui()
 
+    def check_login_status(self, driver):
+        """Check if there's an active Facebook session"""
+        try:
+            driver.get("https://www.facebook.com")
+            time.sleep(3)
+            wait = WebDriverWait(driver, 10)
+            
+            # Look for multiple possible indicators of being logged in
+            logged_in = False
+            try:
+                # Try different elements that indicate we're logged in
+                logged_in = any([
+                    wait.until(EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Create' or @aria-label='Create Post']"))),
+                    wait.until(EC.presence_of_element_located((By.XPATH, "//div[contains(@aria-label, 'profile')]"))),
+                    wait.until(EC.presence_of_element_located((By.XPATH, "//div[@aria-label='Menu' or @aria-label='Settings']"))),
+                    not ("login" in driver.current_url.lower())
+                ])
+            except:
+                pass
+
+            if logged_in:
+                self.log("Found existing Facebook session")
+                return True
+            else:
+                self.log("No existing session detected")
+                return False
+                
+        except Exception as e:
+            self.log(f"Session check error: {str(e)}")
+            return False
+
     def setup_gui(self):
         # Create main container
         container = ctk.CTkFrame(self.window)
@@ -193,34 +224,42 @@ class FacebookPoster:
             
             driver = webdriver.Chrome(options=chrome_options)
 
-            # Try cookies first
-            cookies = self.load_cookies()
-            if cookies:
-                self.log("Attempting to login with saved cookies...")
-                driver.get("https://www.facebook.com")
-                for cookie in cookies:
+                        # Check for existing session first
+            if self.check_login_status(driver):
+                self.log("Using existing session")
+            else:
+                # Try cookies first
+                cookies = self.load_cookies()
+                if cookies:
+                    self.log("Attempting to login with saved cookies...")
+                    driver.get("https://www.facebook.com")
+                    for cookie in cookies:
+                        try:
+                            driver.add_cookie(cookie)
+                        except:
+                            pass
+                    driver.refresh()
+                    time.sleep(5)
+                
+                # If still not logged in, try credentials
+                if not self.check_login_status(driver):
+                    self.log("Logging in with credentials...")
+                    driver.get("https://www.facebook.com")
                     try:
-                        driver.add_cookie(cookie)
-                    except:
-                        pass
-                driver.refresh()
-                time.sleep(5)
+                        email_element = driver.find_element(By.ID, "email")
+                        email_element.send_keys(email)
+                        
+                        pass_element = driver.find_element(By.ID, "pass")
+                        pass_element.send_keys(password)
+                        
+                        login_button = driver.find_element(By.NAME, "login")
+                        login_button.click()
+                        
+                        time.sleep(5)
+                    except Exception as e:
+                        self.log(f"Login element error: {str(e)}")
+                        # Continue anyway since we might already be logged in
 
-            # If no cookies or cookie login failed, try normal login
-            if not cookies or "login" in driver.current_url.lower():
-                self.log("Logging in with credentials...")
-                driver.get("https://www.facebook.com")
-                
-                email_element = driver.find_element(By.ID, "email")
-                email_element.send_keys(email)
-                
-                pass_element = driver.find_element(By.ID, "pass")
-                pass_element.send_keys(password)
-                
-                login_button = driver.find_element(By.NAME, "login")
-                login_button.click()
-                
-                time.sleep(5)
 
             # Check if verification is needed
             if "checkpoint" in driver.current_url or "login" in driver.current_url:
